@@ -1,0 +1,110 @@
+```{r}
+install.packages("plotly")
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(plotly)
+```
+```{r}
+videos_stats <- videos.stats
+```
+```{r}
+dim(videos_stats)
+str(videos_stats)
+summary(videos_stats)
+videos_stats %>%
+  summarise_all(~ sum(is.na(.)))
+videos_stats <- videos_stats %>%
+  drop_na()
+```
+
+```{r}
+videos_stats <- videos_stats %>%
+  mutate(LikesPer1k = round(Likes/(Views/1000), 2),
+         CommentsPer1k = round(Comments/(Views/1000), 2),
+         TitleLen = nchar(Title))
+```
+
+```{r}
+videos_stats <- videos_stats %>%
+  mutate(PubYear = as.factor(substr(Published.At,1,4)),
+         Published.At = as.POSIXct(Published.At, format="%Y-%m-%d"))
+```
+
+```{r}
+videos_stats %>%
+  ggplot(aes(x=PubYear)) +
+  geom_bar(fill="#765add") +
+  theme_minimal() +
+  labs(title= "Number of videos by year", x= "Publication Year", y="Count")
+```
+
+
+```{r}
+videos_stats %>%
+  ggplot(aes(x=TitleLen)) +
+  geom_histogram(fill="#765add", bins=30) +
+  theme_minimal() +
+  labs(title= "Distribution of title length", x="Title Length (char)", y="Frequency")
+```
+
+```{r}
+plot1 <- videos_stats %>%
+  # get tot comments per keyword per year; divide by 1000 to change scale
+  group_by(PubYear, Keyword) %>%
+  summarise(total_comments = sum(Comments)/1000) %>%
+  # create a ggplot colored by keywords
+  ggplot(aes(x=PubYear, y=total_comments, color=Keyword)) +
+  # group = 1 specifies we want 1 line per keyword
+  geom_line(aes(group=1)) +
+  geom_point(size=0.5, alpha=0.5) +
+  ylab("Comment Count") +
+  xlab("Published Year") +
+  labs(title="Total Comments by Category Overtime (by 1k)") +
+  theme_minimal()
+#convert into plotly graph
+ggplotly(plot1)
+```
+
+```{r}
+plot2 <- videos_stats %>%
+  # get avg title length per keyword per year
+  group_by(PubYear, Keyword) %>%
+  summarise(avg_len=mean(TitleLen)) %>%
+  # create a ggplot colored by keywords
+  ggplot(aes(x=PubYear, y=avg_len, color=Keyword)) +
+  geom_line(aes(group=1)) +
+  geom_point(size=0.5, alpha=0.5) +
+  ylab("Avg Title Length (char)") +
+  xlab("Published Year") +
+  labs(title="Avg Title Length by Category Overtime (by 1k)") +
+  theme_minimal()
+# convert into a plotly graph
+ggplotly(plot2)
+```
+
+```{r}
+videos_stats %>%
+  # Specify variables we want to include
+  plot_ly(x=~LikesPer1k, y=~CommentsPer1k, color=~Keyword, type="scatter", mode="markers", size=~Views, sizes=c(5,70),
+          # Add markers for each point and specify info to display
+          marker=list(sizemode="diameter", opacity=0.5), hoverinfo="text",
+                                #customize hover text
+                      text=~paste(
+                        paste0("Likes per 1k views: ", LikesPer1k),
+                        paste0("Comments per 1k views: ", CommentsPer1k),
+                        paste0("Views (100k): ", round(Views/100000, 2)),
+                        paste0("Keyword (Category): ", Keyword),
+                      sep="<br>")) %>%
+  # Label the axes
+  layout(title = 'Likes VS Comments per 1k Views',
+         xaxis = list(title = 'Likes per 1k'),
+         yaxis = list(title = 'Comments per 1k'),
+         legend = list(title=list(text='<b> Keyword </b>')))
+                      
+```
+
+```{r}
+install.packages("flexdashboard")
+```
+
